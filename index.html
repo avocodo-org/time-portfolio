@@ -215,19 +215,12 @@
           </div>
           <div id="contrib-legend" class="contrib-legend"></div>
         </div>
-        <!-- 세로 고정: viewBox 높이는 항상 동일(7행) -->
-        <!-- <svg id="contrib-graph" viewBox="0 0 320 110" style="width:100%;max-width:640px;display:block;margin:0 auto;"></svg> -->
-         <!-- 기존 줄을 이걸로 교체 -->
-        <!-- <svg id="contrib-graph"
-            viewBox="0 0 320 110"
-            style="width:100%;max-width:640px;height:120px;display:block;margin:0 auto;"></svg> -->
 
         <svg id="contrib-graph"
         viewBox="0 0 320 110"
         style="width:100%;max-width:640px;height:240px;display:block;margin:0 auto;"></svg>
 
         <div id="contrib-tip" class="contrib-tip" role="tooltip" aria-hidden="true"></div>
-        <!-- <p class="muted">업무·공부·운동 총합(시간) — 칸을 탭/호버하면 날짜·시간 표시</p> -->
       </div>
 
       <div class="card">
@@ -367,6 +360,30 @@
       let changed = false;
       appData.timeRecords.forEach(r => { if (!r.id) { r.id = uid(); changed = true; } });
       if (changed) saveData();
+    }
+
+    // === Grace-window helpers (수면+식사 11h 이후부터 휴식 차감) ===
+    function getDefaultSumForToday() {
+      const todayStart = startOfLocalDay();
+      const todaysAll = appData.timeRecords.filter(r => isSameLocalDay(r.timestamp, todayStart));
+      return todaysAll.filter(r => r.isDefault).reduce((s, r) => s + (Number(r.duration) || 0), 0);
+    }
+    function getUsedActiveToday(includeRunning = true) {
+      const todayStart = startOfLocalDay();
+      const todaysAll = appData.timeRecords.filter(r => isSameLocalDay(r.timestamp, todayStart));
+      let runningAdd = 0;
+      if (includeRunning && timerInterval) runningAdd = timerElapsed;
+      const usedActive = todaysAll
+        .filter(r => !r.isDefault)
+        .reduce((s, r) => s + (Number(r.duration) || 0), 0) + runningAdd;
+      return usedActive;
+    }
+    function computeRestAndFuture({ elapsed, defaultSum, usedActive }) {
+      const BASE = Math.max(0, DAY - defaultSum);               // 13h
+      const elapsed_free = Math.max(0, elapsed - defaultSum);   // 그레이스 이후 경과
+      const restSoFar = Math.min(BASE, Math.max(0, elapsed_free - usedActive));
+      const futureBudget = Math.max(0, BASE - usedActive - restSoFar);
+      return { BASE, restSoFar, futureBudget };
     }
 
     // ===== Initialize
@@ -657,12 +674,6 @@
 
       // 오늘 기록 모음
       const todaysAll = appData.timeRecords.filter(r => isSameLocalDay(r.timestamp, dayStart));
-      const defaultSum = todaysAll
-        .filter(r => r.isDefault)
-        .reduce((s, r) => s + (Number(r.duration) || 0), 0);
-      const BASE = Math.max(0, DAY - defaultSum); // 오늘 사용 가능한 13h (기본값 합을 제외)
-
-      // 카테고리별(기본+사용자) 합
       const timeData = {};
       todaysAll.forEach(r => {
         timeData[r.category] = (timeData[r.category] || 0) + (Number(r.duration) || 0);
@@ -676,14 +687,12 @@
         timeData[runningCat] = (timeData[runningCat] || 0) + runningAdd;
       }
 
-      // (핵심) 휴식/남은시간 계산을 "13h 예산" 기준으로
-      const usedActive = todaysAll
-        .filter(r => !r.isDefault)
-        .reduce((s, r) => s + (Number(r.duration) || 0), 0) + runningAdd;
+      // === Grace-window 계산부: 수면+식사 11h 이후부터 휴식 감소 ===
+      const defaultSum = getDefaultSumForToday();          // 보통 8h+3h
+      const usedActive = getUsedActiveToday(true);         // 사용자 활동(진행중 포함)
+      const { restSoFar, futureBudget } = computeRestAndFuture({ elapsed, defaultSum, usedActive });
 
-      const restSoFar = Math.min(BASE, Math.max(0, elapsed - usedActive));
-      const futureBudget = Math.max(0, BASE - usedActive - restSoFar);
-
+      // 파이에 rest/future 반영
       const timePie = { ...timeData, rest: restSoFar };
       if (futureBudget > 0) timePie.future = futureBudget;
 
@@ -691,7 +700,7 @@
       drawPieChart("time-pie-chart", timePie, timeNames, timeColors);
       drawLegend("time-pie-legend", timePie, timeNames, timeColors, "time");
 
-      // ── 아래는 자산 파이 기존 로직 그대로 ──
+      // ── 자산 파이 ──
       const assetDataByName = {};
       for (const a of appData.assets) {
         const key = (a.name || "").trim();
@@ -712,27 +721,17 @@
       drawPieChart("asset-pie-chart", assetDataByName, assetNames, assetColors);
       drawLegend("asset-pie-legend", assetDataByName, assetNames, assetColors, "asset");
     }
+
     // ===== '남은 오늘'
     function updateDayRemaining() {
       const dayStart = startOfLocalDay();
       const now = Date.now();
       const elapsed = Math.min(now - dayStart, DAY);
 
-      const todaysAll = appData.timeRecords.filter(r => isSameLocalDay(r.timestamp, dayStart));
-      const defaultSum = todaysAll
-        .filter(r => r.isDefault)
-        .reduce((s, r) => s + (Number(r.duration) || 0), 0);
-      const BASE = Math.max(0, DAY - defaultSum); // 13h 예산
+      const defaultSum = getDefaultSumForToday();
+      const usedActive = getUsedActiveToday(true);
 
-      let runningAdd = 0;
-      if (timerInterval) runningAdd = timerElapsed;
-
-      const usedActive = todaysAll
-        .filter(r => !r.isDefault)
-        .reduce((s, r) => s + (Number(r.duration) || 0), 0) + runningAdd;
-
-      const restSoFar = Math.min(BASE, Math.max(0, elapsed - usedActive));
-      const futureBudget = Math.max(0, BASE - usedActive - restSoFar); // ← 보여줄 "남은 하루"
+      const { futureBudget } = computeRestAndFuture({ elapsed, defaultSum, usedActive });
 
       const h = Math.floor(futureBudget / HOUR);
       const m = Math.floor((futureBudget % HOUR) / MINUTE);
@@ -877,43 +876,34 @@
       }
       renderContributionFixed({ startDate: start, endDate: now });
     }
-    // 항상 7행(요일)로 그리고, 세로 높이 고정
-    // 항상 7행(요일)로 그리고, 세로 높이 고정
     function renderContributionFixed({startDate, endDate}) {
       const svg = document.getElementById('contrib-graph');
       if (!svg) return;
       svg.innerHTML = '';
 
-      // ── 고정 레이아웃 파라미터 ─────────────────────────
-      const ROWS = 7;              // 요일 7행 고정
-      const CELL = 12;             // 셀 한 변(px) 고정
-      const GAP  = 2;              // 셀 간격(px)
-      const TOP  = 18;             // 상단 여백(월 라벨 영역)
-      const LEFT = 24;             // 좌측 여백(요일 라벨 영역)
-      // const FIXED_HEIGHT = TOP + ROWS * (CELL + GAP) - GAP + 8; // 항상 동일한 viewBox 높이
-      const FIXED_HEIGHT = TOP + ROWS * (CELL + GAP) - GAP + 8; // 항상 동일한 viewBox 높이
-      // ──────────────────────────────────────────────────
+      const ROWS = 7;
+      const CELL = 12;
+      const GAP  = 2;
+      const TOP  = 18;
+      const LEFT = 24;
+      const FIXED_HEIGHT = TOP + ROWS * (CELL + GAP) - GAP + 8;
 
       const today = new Date(endDate); today.setHours(0,0,0,0);
       const start = new Date(startDate); start.setHours(0,0,0,0);
 
-      // 시작일을 직전 일요일로 보정(항상 주 단위 열)
       const shift = start.getDay();
       start.setDate(start.getDate() - shift);
 
-      // 날짜별 총 시간
       const daily = buildDailyHoursMap(true);
 
       const DAY_MS = 24*60*60*1000;
       const daysSpan = Math.floor((today - start) / DAY_MS) + 1;
       const weeks = Math.ceil(daysSpan / 7);
 
-      // 가로 폭은 주 수에 따라 변하지만, 높이는 FIXED_HEIGHT로 고정
       const width  = LEFT + weeks * (CELL + GAP) - GAP + 8;
       const height = FIXED_HEIGHT;
       svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
 
-      // 요일 라벨(월/수/금)
       const dayNames = ['일','월','화','수','목','금','토'];
       [1,3,5].forEach(dow => {
         const y = TOP + dow * (CELL + GAP) + CELL - 2;
@@ -972,14 +962,12 @@
         }, {passive:true});
         rect.addEventListener('touchend', hideTip);
 
-        // 기본 title도 유지
         const title = document.createElementNS('http://www.w3.org/2000/svg','title');
         title.textContent = `${dateText} · ${h.toFixed(1)}시간`;
         rect.appendChild(title);
 
         svg.appendChild(rect);
 
-        // 월 라벨(1일 열 상단)
         if (d.getDate() === 1) {
           const monthKey = `${d.getFullYear()}-${d.getMonth()}`;
           if (!monthPrinted.has(monthKey)) {
