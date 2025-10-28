@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Time Asset" />
+  <title>시간 포트폴리오</title>
+  <style>
+    :root {
+      --color-background: #fcfcf9;
+      --color-surface: #fffffe;
+      --color-text: #13343b;
+      --color-text-secondary: #626c71;
+      --color-primary: #21808d;
+      --color-primary-hover: #1d7480;
+      --color-secondary: rgba(94, 82, 64, 0.12);
+      --color-border: rgba(94, 82, 64, 0.2);
+      --color-success: #21808d;
+      --color-error: #c0152f;
+      --color-warning: #a84b2f;
+      --radius-base: 8px;
+      --radius-lg: 12px;
+      --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
+      --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.04);
+      --space-8: 8px;
+      --space-12: 12px;
+      --space-16: 16px;
+      --space-24: 24px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --color-background: #1f2121;
+        --color-surface: #262828;
+        --color-text: #f5f5f5;
+        --color-text-secondary: rgba(167, 169, 169, 0.7);
+        --color-primary: #32b8c6;
+        --color-primary-hover: #2da6b2;
+        --color-secondary: rgba(119, 124, 124, 0.15);
+        --color-border: rgba(119, 124, 124, 0.3);
+        --color-success: #32b8c6;
+        --color-error: #ff5459;
+      }
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0; padding: 0;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--color-background); color: var(--color-text);
+      font-size: 16px; line-height: 1.5; overflow-x: hidden;
+    }
+    .container { max-width: 800px; margin: 0 auto; padding: var(--space-16); padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+    .header { text-align: center; margin-bottom: var(--space-24); padding-top: var(--space-16); }
+    .header h1 { margin: 0; font-size: 28px; font-weight: 600; color: var(--color-text); }
+    .tabs {
+      display: flex; gap: var(--space-8); margin-bottom: var(--space-24);
+      background: var(--color-surface); border-radius: var(--radius-lg);
+      padding: 4px; box-shadow: var(--shadow-sm);
+      position: sticky; top: calc(var(--space-8) + env(safe-area-inset-top)); z-index: 10;
+    }
+    .tab-btn {
+      flex: 1; padding: var(--space-12) var(--space-16); border: none; background: transparent;
+      color: var(--color-text-secondary); font-size: 15px; font-weight: 500; border-radius: var(--radius-base);
+      cursor: pointer; transition: all 0.2s;
+    }
+    .tab-btn.active { background: var(--color-primary); color: white; box-shadow: var(--shadow-sm); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.3s; }
+    @keyframes fadeIn { from {opacity: 0; transform: translateY(10px);} to {opacity: 1; transform: translateY(0);} }
+    .card {
+      background: var(--color-surface);
+      border-radius: var(--radius-lg);
+      padding: var(--space-16);
+      margin-bottom: var(--space-16);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--color-border);
+    }
+    .card h2 { margin: 0 0 var(--space-16) 0; font-size: 20px; font-weight: 600; }
+    .btn {
+      padding: var(--space-12) var(--space-24); border: none; border-radius: var(--radius-base);
+      font-size: 16px; font-weight: 500; cursor: pointer; transition: all 0.2s;
+      min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-8);
+    }
+    .btn-primary { background: var(--color-primary); color: white; }
+    .btn-primary:active { transform: scale(0.95); background: var(--color-primary-hover); }
+    .btn-secondary { background: var(--color-secondary); color: var(--color-text); }
+    .btn-secondary:active { transform: scale(0.95); }
+    .btn-clear { background: var(--color-error) ; color: white; }
+    .btn-small { padding: var(--space-8) var(--space-12); font-size: 14px; min-height: 36px; }
+    .btn-full { width: 100%; }
+    .form-group { margin-bottom: var(--space-16); }
+    .form-label { display: block; margin-bottom: var(--space-8); font-weight: 500; font-size: 14px; color: var(--color-text); }
+    .form-control {
+      width: 100%; padding: var(--space-12); border: 1px solid var(--color-border); border-radius: var(--radius-base);
+      font-size: 16px; background: var(--color-surface); color: var(--color-text); min-height: 44px;
+    }
+    .form-control:focus { outline: 2px solid var(--color-primary); outline-offset: -1px; }
+    select.form-control {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23626c71' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 12px center; padding-right: 40px;
+    }
+    .timer-display {
+      font-size: 48px; font-weight: 600; text-align: center; margin: var(--space-24) 0;
+      font-variant-numeric: tabular-nums; color: var(--color-primary);
+    }
+    .list-item { display: flex; justify-content: space-between; align-items: center; padding: var(--space-12); border-bottom: 1px solid var(--color-border); min-height: 56px; }
+    .list-item:last-child { border-bottom: none; }
+    .list-item-content { flex: 1; }
+    .list-item-title { font-weight: 500; margin-bottom: 4px; }
+    .list-item-subtitle { font-size: 14px; color: var(--color-text-secondary); }
+    .list-item-actions { display: flex; gap: var(--space-8); }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--space-12); margin-bottom: var(--space-16); }
+    .stat-card { background: var(--color-secondary); padding: var(--space-16); border-radius: var(--radius-base); text-align: center; }
+    .stat-value { font-size: 28px; font-weight: 600; color: var(--color-primary); margin-bottom: 4px; }
+    .stat-label { font-size: 14px; color: var(--color-text-secondary); }
+    .empty-state { text-align: center; padding: var(--space-24); color: var(--color-text-secondary); }
+    .toast {
+      position: fixed; top: calc(var(--space-16) + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+      background: var(--color-text); color: var(--color-background);
+      padding: var(--space-12) var(--space-24); border-radius: var(--radius-base);
+      box-shadow: var(--shadow-md); z-index: 100; opacity: 0; transition: opacity 0.3s;
+    }
+    .toast.show { opacity: 1;}
+    .pie-chart { width: 100%; max-width: 280px; margin: 0 auto; display: block; }
+
+    /* --- Amount stepper UI --- */
+    .number-field {
+      display: grid;
+      grid-template-columns: 44px 1fr 44px;
+      gap: 8px;
+      align-items: center;
+    }
+    .nf-input { text-align: center; font-variant-numeric: tabular-nums; }
+    .nf-btn {
+      height: 44px; border: 1px solid var(--color-border);
+      background: var(--color-secondary); color: var(--color-text);
+      border-radius: var(--radius-base); font-size: 20px; line-height: 1; cursor: pointer;
+    }
+    .nf-btn:active { transform: scale(0.97); }
+    .step-chips { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip {
+      border: 1px solid var(--color-border);
+      background: var(--color-surface); color: var(--color-text);
+      padding: 6px 10px; border-radius: 9999px; font-size: 14px; cursor: pointer;
+    }
+    .chip.active { background: var(--color-primary); color: #fff; border-color: transparent; }
+
+    /* ====== Heatmap: 추가된 부분 ====== */
+    .contrib-controls{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+    .contrib-legend{ display:flex; align-items:center; gap:4px; font-size:15px; color:var(--color-text-secondary); }
+    .legend-swatch{ width:15px; height:15px; border-radius:2px; background:var(--color-secondary); }
+    .contrib-tip{
+      position: fixed; z-index: 99; pointer-events: none;
+      background: var(--color-text); color: var(--color-background);
+      padding: 6px 8px; border-radius: 6px; font-size:12px; box-shadow: var(--shadow-md);
+      transform: translate(-50%, -120%); white-space: nowrap; opacity: 0; transition: opacity .12s ease;
+    }
+
+    .muted { margin-top: 8px; font-size: 13px; color: var(--color-text-secondary); text-align: center; }
+
+    @media (max-width: 600px) { .header h1 { font-size: 24px; } .timer-display { font-size: 40px; } .stat-value { font-size: 24px; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header"><h1>🥑 시간 포트폴리오</h1></div>
+
+    <div class="tabs">
+      <button class="tab-btn active" type="button" onclick="switchTab('time', event)">⏱️ 시간</button>
+      <button class="tab-btn" type="button" onclick="switchTab('asset', event)">💰 자산</button>
+      <button class="tab-btn" type="button" onclick="switchTab('data', event)">⚙️ 설정</button>
+    </div>
+
+    <!-- Time Tracking Tab -->
+    <div id="time-tab" class="tab-content active">
+      <div class="card">
+        <h2>시간 기록</h2>
+        <div class="form-group">
+          <label class="form-label">활동 선택</label>
+          <select id="time-category" class="form-control">
+            <option value="work">업무</option>
+            <option value="study">공부</option>
+            <option value="exercise">운동</option>
+          </select>
+        </div>
+        <div class="timer-display" id="timer-display">00:00:00</div>
+        <button id="timer-btn" class="btn btn-primary btn-full" type="button" onclick="toggleTimer()">시작</button>
+      </div>
+
+      <div class="card">
+        <h2>활동 분포 (24시간)</h2>
+        <div class="stat-card">
+            <div id="day-remaining" class="stat-value"></div>
+            <div class="stat-label">남은 하루</div>
+        </div>
+        <svg id="time-pie-chart" class="pie-chart" viewBox="0 0 100 100"></svg>
+        <div id="time-pie-legend" class="pie-legend"></div>
+      </div>
+
+      <!-- ====== 활동 히트맵(추가) ====== -->
+      <div class="card">
+        <h2>활동 히트맵</h2>
+        <div class="contrib-controls">
+          <div id="contrib-range" class="step-chips" aria-label="히트맵 범위 선택">
+            <button type="button" class="chip" data-range="1w">주</button>
+            <button type="button" class="chip" data-range="1m">월</button>
+            <button type="button" class="chip" data-range="3m">3개월</button>
+            <button type="button" class="chip active" data-range="6m">6개월</button>
+            <!-- <button type="button" class="chip active" data-range="12m">1년</button> -->
+          </div>
+          <div id="contrib-legend" class="contrib-legend"></div>
+        </div>
+        <!-- 세로 고정: viewBox 높이는 항상 동일(7행) -->
+        <!-- <svg id="contrib-graph" viewBox="0 0 320 110" style="width:100%;max-width:640px;display:block;margin:0 auto;"></svg> -->
+         <!-- 기존 줄을 이걸로 교체 -->
+        <!-- <svg id="contrib-graph"
+            viewBox="0 0 320 110"
+            style="width:100%;max-width:640px;height:120px;display:block;margin:0 auto;"></svg> -->
+
+        <svg id="contrib-graph"
+        viewBox="0 0 320 110"
+        style="width:100%;max-width:640px;height:240px;display:block;margin:0 auto;"></svg>
+
+        <div id="contrib-tip" class="contrib-tip" role="tooltip" aria-hidden="true"></div>
+        <!-- <p class="muted">업무·공부·운동 총합(시간) — 칸을 탭/호버하면 날짜·시간 표시</p> -->
+      </div>
+
+      <div class="card">
+        <h2>오늘 기록</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="today-total">0h</div>
+            <div class="stat-label">총 시간</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="today-sessions">0</div>
+            <div class="stat-label">세션</div>
+          </div>
+        </div>
+        <div id="today-records"></div>
+        <button class="btn btn-clear btn-full" type="button" onclick="clearTodayTimeRecords()" style="margin-top:12px;">초기화</button>
+      </div>
+    </div>
+
+    <!-- Asset Portfolio Tab -->
+    <div id="asset-tab" class="tab-content">
+      <div class="card">
+        <h2>자산 추가</h2>
+        <div class="form-group">
+          <label class="form-label">자산명</label>
+          <input type="text" id="asset-name" class="form-control" placeholder="예: 삼성전자" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">금액 (원)</label>
+          <div class="number-field">
+            <button type="button" class="nf-btn" onclick="bumpAsset(-1)">−</button>
+            <input type="text" id="asset-value" class="form-control nf-input" placeholder="예: 1,000,000" inputmode="numeric" autocomplete="off" />
+            <button type="button" class="nf-btn" onclick="bumpAsset(1)">+</button>
+          </div>
+          <div class="step-chips" id="asset-step-chips" aria-label="증가 단위 선택">
+            <button type="button" class="chip active" data-step="1">만원</button>
+            <button type="button" class="chip" data-step="10">10만원</button>
+            <button type="button" class="chip" data-step="100">100만원</button>
+            <button type="button" class="chip" data-step="1000">1000만원</button>
+            <button type="button" class="chip" data-step="10000">1억원</button>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-full" type="button" onclick="addAsset()">추가</button>
+      </div>
+
+      <div class="card">
+        <h2>자산 분포</h2>
+        <svg id="asset-pie-chart" class="pie-chart" viewBox="0 0 100 100"></svg>
+        <div id="asset-pie-legend" class="pie-legend"></div>
+      </div>
+
+      <div class="card">
+        <h2>자산 현황</h2>
+        <div class="stat-card" style="margin-bottom: 16px;">
+          <div class="stat-value" id="total-assets">0원</div>
+          <div class="stat-label">총 자산</div>
+        </div>
+        <div id="asset-list"></div>
+        <button class="btn btn-clear btn-full" type="button" onclick="clearAllAssets()" style="margin-top:12px;">초기화</button>
+      </div>
+    </div>
+
+    <!-- Data Management Tab -->
+    <div id="data-tab" class="tab-content">
+      <div class="card">
+        <h2>데이터 관리</h2>
+        <p style="color: var(--color-text-secondary); margin-bottom: 16px;">
+          데이터는 자동으로 기기에 저장됩니다. 백업하거나 다른 기기로 옮길 수 있습니다.
+        </p>
+        <button class="btn btn-primary btn-full" type="button" onclick="exportData()" style="margin-bottom: 8px;">📤 데이터 내보내기</button>
+        <button class="btn btn-secondary btn-full" type="button" onclick="document.getElementById('import-file').click()">📥 데이터 불러오기</button>
+        <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importData(event)" />
+      </div>
+
+      <div class="card">
+        <h2>통계</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="total-time-records">0/0</div>
+            <div class="stat-label">시간 기록 (오늘/전체)</div>
+            <div class="stat-label" id="time-hours-summary" style="margin-top:4px;">0.0h / 0.0h</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="total-asset-records">0</div>
+            <div class="stat-label">자산 항목</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>앱 정보</h2>
+        <p style="color: var(--color-text-secondary); font-size: 14px; margin: 0;">
+          🥑 시간 포트폴리오 v1.0 created by Avocodo<br />오프라인에서 작동하며 데이터는 기기에 안전하게 저장됩니다.
+        </p>
+      </div>
+
+      <script data-name="BMC-Widget" data-cfasync="false" src="https://cdnjs.buymeacoffee.com/1.0.0/widget.prod.min.js" data-id="avocodo" data-description="Support me on Buy me a coffee!" data-message="" data-color="#FF813F" data-position="Right" data-x_margin="18" data-y_margin="18"></script>
+      
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    // ===== Data Storage
+    const STORAGE_KEY = "time-asset-data";
+    let appData = { timeRecords: [], assets: [], settings: {} };
+
+    // Timer State
+    let timerInterval = null;
+    let timerStartTime = null;
+    let timerElapsed = 0;
+
+    // Heatmap State
+    let contribRange = '6m'; // 1w | 1m | 3m | 6m | 12m
+
+    // ===== Utils
+    const SECOND = 1000, MINUTE = 60 * SECOND, HOUR = 60 * MINUTE, DAY = 24 * HOUR;
+    const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    function startOfLocalDay(ts = Date.now()) { const d = new Date(ts); d.setHours(0,0,0,0); return d.getTime(); }
+    function isSameLocalDay(a, b) { return startOfLocalDay(a) === startOfLocalDay(b); }
+    function showToast(message) { const t = document.getElementById("toast"); t.textContent = message; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2000); }
+
+    // 쉼표 포맷
+    function formatNumberWithCommas(x) {
+      if (x === "" || x === null || x === undefined) return "";
+      const n = String(x).replace(/[^0-9.]/g, "");
+      if (!n) return "";
+      const parts = n.split(".");
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      return parts.join(".");
+    }
+
+    // 보강: 기존 데이터에 id 없으면 채워 넣기
+    function ensureTimeRecordIds() {
+      if (!Array.isArray(appData.timeRecords)) return;
+      let changed = false;
+      appData.timeRecords.forEach(r => { if (!r.id) { r.id = uid(); changed = true; } });
+      if (changed) saveData();
+    }
+
+    // ===== Initialize
+    function init() {
+      loadData();
+      ensureTimeRecordIds();
+      addDefaultTimes();
+      updateUI();
+
+      // iOS install hint
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      const inStandalone = "standalone" in navigator && navigator.standalone;
+      if (isIOS && !inStandalone) setTimeout(() => showToast("홈 화면에 추가하여 앱처럼 사용하세요!"), 2000);
+
+      // 금액 입력 쉼표 포맷
+      const amountInput = document.getElementById("asset-value");
+      amountInput.addEventListener("input", (e) => {
+        const raw = e.target.value;
+        const numeric = raw.replace(/,/g, "");
+        e.target.value = formatNumberWithCommas(numeric);
+        e.target.setSelectionRange(e.target.value.length, e.target.value.length);
+      });
+      amountInput.addEventListener("focus", (e) => { e.target.value = e.target.value.replace(/,/g, ""); });
+      amountInput.addEventListener("blur",  (e) => { e.target.value = formatNumberWithCommas(e.target.value); });
+
+      // 기존 1분 주기(원본 유지) + 히트맵 1초 주기(즉시 반영)
+      setInterval(() => {
+        if (document.getElementById('time-tab').classList.contains('active')) {
+          updatePieCharts();
+          updateDayRemaining();
+        }
+      }, 1000*60);
+
+      // 히트맵만 1분마다 재렌더(실시간 반영)
+      setInterval(() => {
+        if (document.getElementById('time-tab').classList.contains('active')) {
+          renderContributionForCurrentRange();
+        }
+      }, 1000*60);
+
+      // 히트맵 UI 초기화
+      initContribRangeChips();
+      renderContributionLegend();
+      renderContributionForCurrentRange();
+    }
+
+    // Add default times for today if not exist
+    function addDefaultTimes() {
+      const today = startOfLocalDay();
+      const todayRecords = appData.timeRecords.filter(r => isSameLocalDay(r.timestamp, today));
+      const hasSleep = todayRecords.some(r => r.category === "sleep" && r.isDefault);
+      const hasMeal  = todayRecords.some(r => r.category === "meal" && r.isDefault);
+      const now = Date.now();
+
+      if (!hasSleep) appData.timeRecords.push({ id: uid(), category: "sleep", duration: 8 * HOUR, timestamp: now, isDefault: true });
+      if (!hasMeal)  appData.timeRecords.push({ id: uid(), category: "meal",  duration: 3 * HOUR, timestamp: now, isDefault: true });
+
+      if (!hasSleep || !hasMeal) saveData();
+    }
+
+    // ===== Data Management
+    function loadData() {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) appData = JSON.parse(stored);
+      } catch (e) { console.error("Failed to load data:", e); showToast("데이터 로드 실패"); }
+    }
+    function saveData() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appData)); }
+      catch (e) { console.error("Failed to save data:", e); showToast("데이터 저장 실패"); }
+    }
+    function exportData() {
+      const dataStr = JSON.stringify(appData, null, 2);
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `time-asset-backup-${new Date().toISOString().split("T")[0]}.json`;
+      a.click(); URL.revokeObjectURL(url);
+      showToast("데이터 내보내기 완료!");
+    }
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (!imported || !Array.isArray(imported.timeRecords) || !Array.isArray(imported.assets)) { showToast("잘못된 파일 형식입니다"); return; }
+          if (confirm("기존 데이터를 덮어쓰시겠습니까?")) {
+            appData = imported;
+            ensureTimeRecordIds();
+            saveData(); updateUI(); showToast("데이터 불러오기 완료!");
+            renderContributionForCurrentRange();
+          }
+        } catch { showToast("잘못된 파일 형식입니다"); }
+      };
+      reader.readAsText(file);
+      event.target.value = "";
+    }
+
+    // ===== Tabs
+    function switchTab(tab, evt) {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+      if (evt && evt.currentTarget) evt.currentTarget.classList.add("active");
+      document.getElementById(`${tab}-tab`).classList.add("active");
+      updateUI();
+      if (tab === 'time') renderContributionForCurrentRange();
+    }
+
+    // ===== Timer
+    function toggleTimer() { timerInterval ? stopTimer() : startTimer(); }
+    function startTimer() {
+      timerStartTime = Date.now() - timerElapsed;
+      timerInterval = setInterval(updateTimerDisplay, 100);
+      const btn = document.getElementById("timer-btn");
+      btn.textContent = "정지";
+      btn.classList.remove("btn-primary"); btn.classList.add("btn-secondary");
+    }
+    function stopTimer() {
+      clearInterval(timerInterval); timerInterval = null;
+      const category = document.getElementById("time-category").value;
+      const duration = timerElapsed;
+      if (duration > 0) {
+        appData.timeRecords.push({ id: uid(), category, duration, timestamp: Date.now() });
+        saveData(); showToast("시간 기록 저장 완료!");
+      }
+      timerElapsed = 0; updateTimerDisplay(); updateUI();
+      renderContributionForCurrentRange(); // 정지 직후 즉시 반영
+      const btn = document.getElementById("timer-btn");
+      btn.textContent = "시작"; btn.classList.add("btn-primary"); btn.classList.remove("btn-secondary");
+    }
+    function updateTimerDisplay() {
+      if (timerInterval) timerElapsed = Date.now() - timerStartTime;
+      const h = Math.floor(timerElapsed / HOUR), m = Math.floor((timerElapsed % HOUR) / MINUTE), s = Math.floor((timerElapsed % MINUTE) / SECOND);
+      document.getElementById("timer-display").textContent = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+    }
+
+    // ===== Assets
+    function addAsset() {
+      const name = document.getElementById("asset-name").value.trim();
+      const rawWon = document.getElementById("asset-value").value.replace(/,/g, "");
+      const won = Number(rawWon);
+
+      if (!name || Number.isNaN(won) || won <= 0) { showToast("모든 항목을 올바르게 입력하세요"); return; }
+
+      appData.assets.push({ id: uid(), name, value: Math.round(won), timestamp: Date.now() });
+      saveData(); updateUI();
+      document.getElementById("asset-name").value = "";
+      document.getElementById("asset-value").value = "";
+      showToast("자산 추가 완료!");
+    }
+    function deleteAsset(id) {
+      if (1) {
+        appData.assets = appData.assets.filter(a => a.id !== id);
+        saveData(); updateUI(); showToast("자산 삭제 완료");
+      }
+    }
+
+    // ===== 시간 기록 삭제
+    function deleteTimeRecord(id) {
+      if (1) {
+        appData.timeRecords = appData.timeRecords.filter(r => r.id !== id);
+        saveData(); updateUI(); showToast("시간 기록 삭제 완료");
+        renderContributionForCurrentRange();
+      }
+    }
+
+    // ===== NEW: 오늘 기록 전체 삭제
+    function clearTodayTimeRecords() {
+      const today = startOfLocalDay();
+      const count = appData.timeRecords.filter(r => isSameLocalDay(r.timestamp, today) && !r.isDefault).length;
+      if (count === 0) { showToast("삭제할 오늘 기록이 없습니다"); return; }
+      if (!confirm("오늘 시간 포트폴리오를 초기화할까요?")) return;
+      appData.timeRecords = appData.timeRecords.filter(r => !(isSameLocalDay(r.timestamp, today) && !r.isDefault));
+      saveData(); updateUI(); showToast("오늘 시간 포트폴리오가 초기화되었습니다");
+      renderContributionForCurrentRange();
+    }
+
+    // ===== NEW: 자산 전체 삭제
+    function clearAllAssets() {
+      if (appData.assets.length === 0) { showToast("삭제할 자산이 없습니다"); return; }
+      if (!confirm("모든 자산 포트폴리오를 초기화할까요?")) return;
+      appData.assets = [];
+      saveData(); updateUI(); showToast("자산 포트폴리오가 초기화되었습니다");
+    }
+
+    // ===== UI update
+    function updateUI() { updateTimeRecords(); updateAssetList(); updateStats(); }
+
+    function updateTimeRecords() {
+      const today = startOfLocalDay();
+      const todayRecords = appData.timeRecords.filter(r => isSameLocalDay(r.timestamp, today));
+      const todayUserRecords = todayRecords.filter(r => !r.isDefault);
+
+      const running = timerInterval ? timerElapsed : 0;
+      const totalDurationUserOnly = todayUserRecords.reduce((sum, r) => sum + r.duration, 0) + running;
+      const hours = (totalDurationUserOnly / HOUR).toFixed(1);
+      document.getElementById("today-total").textContent = `${hours}h`;
+
+      document.getElementById("today-sessions").textContent = todayUserRecords.length;
+
+      const categoryNames = { work: "업무", study: "공부", exercise: "운동", rest: "휴식", sleep: "수면", meal: "식사" };
+
+      const recordsHtml = todayUserRecords.length > 0
+        ? todayUserRecords.map(r => {
+            const duration = (r.duration / (60*1000)).toFixed(0);
+            const time = new Date(r.timestamp).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+            return `
+              <div class="list-item">
+                <div class="list-item-content">
+                  <div class="list-item-title">${categoryNames[r.category] || r.category}</div>
+                  <div class="list-item-subtitle">${time} · ${duration}분</div>
+                </div>
+                <div class="list-item-actions">
+                  <button class="btn btn-secondary btn-small" type="button" onclick="deleteTimeRecord('${r.id}')">삭제</button>
+                </div>
+              </div>`;
+          }).join("")
+        : '<div class="empty-state">오늘 기록된 사용자 세션이 없습니다</div>';
+
+      document.getElementById("today-records").innerHTML = recordsHtml;
+    }
+
+    function updateAssetList() {
+      const totalValue = appData.assets.reduce((s, a) => s + (Number(a.value) || 0), 0);
+      document.getElementById("total-assets").textContent = totalValue.toLocaleString("ko-KR") + "원";
+
+      const list = document.getElementById("asset-list"); list.innerHTML = "";
+      if (!appData.assets.length) { list.innerHTML = '<div class="empty-state">등록된 자산이 없습니다</div>'; return; }
+
+      appData.assets.forEach(a => {
+        const row = document.createElement("div"); row.className = "list-item";
+        const content = document.createElement("div"); content.className = "list-item-content";
+        const title = document.createElement("div"); title.className = "list-item-title"; title.textContent = a.name;
+        const subtitle = document.createElement("div"); subtitle.className = "list-item-subtitle"; subtitle.textContent = `${(Number(a.value)||0).toLocaleString("ko-KR")}원`;
+        content.appendChild(title); content.appendChild(subtitle);
+        const actions = document.createElement("div"); actions.className = "list-item-actions";
+        const del = document.createElement("button"); del.className = "btn btn-secondary btn-small"; del.type = "button"; del.textContent = "삭제";
+        del.addEventListener("click", () => deleteAsset(a.id));
+        actions.appendChild(del);
+        row.appendChild(content); row.appendChild(actions); list.appendChild(row);
+      });
+    }
+
+    function updateStats() {
+      const todayStart = startOfLocalDay();
+
+      const todaysAll = appData.timeRecords.filter(r => isSameLocalDay(r.timestamp, todayStart));
+      const todaysUser = todaysAll.filter(r => !r.isDefault);
+      const totalUser  = appData.timeRecords.filter(r => !r.isDefault);
+
+      document.getElementById("total-time-records").textContent = `${todaysUser.length}/${totalUser.length}`;
+
+      const sumDur = arr => arr.reduce((s, r) => s + r.duration, 0);
+      const running = timerInterval ? timerElapsed : 0;
+      const todayUserDuration = sumDur(todaysUser) + running;
+      const totalUserDuration = sumDur(totalUser);
+      document.getElementById("time-hours-summary").textContent =
+        `${(todayUserDuration / HOUR).toFixed(1)}h / ${(totalUserDuration / HOUR).toFixed(1)}h`;
+
+      const uniqueAssetCount = new Set(
+        appData.assets.map(a => (a.name || "").trim()).filter(Boolean)
+      ).size;
+      document.getElementById("total-asset-records").textContent = uniqueAssetCount;
+
+      updatePieCharts();
+      updateDayRemaining();
+    }
+
+    // ===== 활동 분포(24h)
+    function updatePieCharts() {
+      const timeNames = { sleep:"수면", meal:"식사", work:"업무", study:"공부", exercise:"운동", rest:"휴식", future:"남은 시간" };
+      const timeColors = {
+        sleep: 'rgba(120, 130, 140, 0.55)',
+        meal:  'rgba(120, 130, 140, 0.45)',
+        rest:  'rgba(120, 130, 140, 0.35)',
+        work:     '#21808d',
+        study:    '#8d2180',
+        exercise: '#808d21',
+        future:   '#F7F7A2'
+      };
+
+      const dayStart = startOfLocalDay();
+      const now = Date.now();
+      const elapsed = Math.min(now - dayStart, DAY);
+
+      // 오늘 기록 모음
+      const todaysAll = appData.timeRecords.filter(r => isSameLocalDay(r.timestamp, dayStart));
+      const defaultSum = todaysAll
+        .filter(r => r.isDefault)
+        .reduce((s, r) => s + (Number(r.duration) || 0), 0);
+      const BASE = Math.max(0, DAY - defaultSum); // 오늘 사용 가능한 13h (기본값 합을 제외)
+
+      // 카테고리별(기본+사용자) 합
+      const timeData = {};
+      todaysAll.forEach(r => {
+        timeData[r.category] = (timeData[r.category] || 0) + (Number(r.duration) || 0);
+      });
+
+      // 진행 중 세션 포함
+      let runningAdd = 0;
+      if (timerInterval) {
+        const runningCat = document.getElementById("time-category").value;
+        runningAdd = timerElapsed;
+        timeData[runningCat] = (timeData[runningCat] || 0) + runningAdd;
+      }
+
+      // (핵심) 휴식/남은시간 계산을 "13h 예산" 기준으로
+      const usedActive = todaysAll
+        .filter(r => !r.isDefault)
+        .reduce((s, r) => s + (Number(r.duration) || 0), 0) + runningAdd;
+
+      const restSoFar = Math.min(BASE, Math.max(0, elapsed - usedActive));
+      const futureBudget = Math.max(0, BASE - usedActive - restSoFar);
+
+      const timePie = { ...timeData, rest: restSoFar };
+      if (futureBudget > 0) timePie.future = futureBudget;
+
+      // 파이 렌더
+      drawPieChart("time-pie-chart", timePie, timeNames, timeColors);
+      drawLegend("time-pie-legend", timePie, timeNames, timeColors, "time");
+
+      // ── 아래는 자산 파이 기존 로직 그대로 ──
+      const assetDataByName = {};
+      for (const a of appData.assets) {
+        const key = (a.name || "").trim();
+        if (!key) continue;
+        const v = (typeof a.value === "number") ? a.value : Number(String(a.value).replace(/[^0-9.-]/g, ""));
+        if (!Number.isFinite(v) || v <= 0) continue;
+        assetDataByName[key] = (assetDataByName[key] || 0) + v;
+      }
+      const assetNames = {};
+      const assetColors = {};
+      const PHI = 137.508;
+      function indexToColor(i) { const hue = (i * PHI) % 360; return `hsl(${hue}, 40%, 50%)`; }
+      Object.keys(assetDataByName).forEach((name, idx) => {
+        assetNames[name] = name;
+        assetColors[name] = indexToColor(idx);
+      });
+
+      drawPieChart("asset-pie-chart", assetDataByName, assetNames, assetColors);
+      drawLegend("asset-pie-legend", assetDataByName, assetNames, assetColors, "asset");
+    }
+    // ===== '남은 오늘'
+    function updateDayRemaining() {
+      const dayStart = startOfLocalDay();
+      const now = Date.now();
+      const elapsed = Math.min(now - dayStart, DAY);
+
+      const todaysAll = appData.timeRecords.filter(r => isSameLocalDay(r.timestamp, dayStart));
+      const defaultSum = todaysAll
+        .filter(r => r.isDefault)
+        .reduce((s, r) => s + (Number(r.duration) || 0), 0);
+      const BASE = Math.max(0, DAY - defaultSum); // 13h 예산
+
+      let runningAdd = 0;
+      if (timerInterval) runningAdd = timerElapsed;
+
+      const usedActive = todaysAll
+        .filter(r => !r.isDefault)
+        .reduce((s, r) => s + (Number(r.duration) || 0), 0) + runningAdd;
+
+      const restSoFar = Math.min(BASE, Math.max(0, elapsed - usedActive));
+      const futureBudget = Math.max(0, BASE - usedActive - restSoFar); // ← 보여줄 "남은 하루"
+
+      const h = Math.floor(futureBudget / HOUR);
+      const m = Math.floor((futureBudget % HOUR) / MINUTE);
+      document.getElementById("day-remaining").textContent = `${h}h ${String(m).padStart(2,'0')}m`;
+    }
+
+    // ===== Pie & Legend
+    function drawPieChart(svgId, data, names, colors) {
+      const svg = document.getElementById(svgId);
+      svg.innerHTML = "";
+
+      const entries = Object.entries(data).filter(([, v]) => Number.isFinite(v) && v > 0);
+      const total = entries.reduce((s, [, v]) => s + v, 0);
+
+      if (total === 0 || entries.length === 0) {
+        svg.innerHTML = '<text x="50" y="50" text-anchor="middle" fill="var(--color-text-secondary)" font-size="5">데이터 없음</text>';
+        return;
+      }
+
+      if (entries.length === 1) {
+        const [onlyKey] = entries[0];
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", "50"); circle.setAttribute("cy", "50"); circle.setAttribute("r", "40");
+        circle.setAttribute("fill", colors[onlyKey] || "#9aa0a6");
+        svg.appendChild(circle);
+        return;
+      }
+
+      let currentAngle = -90;
+      const cx = 50, cy = 50, r = 40;
+
+      entries.forEach(([key, value]) => {
+        const angle = (value / total) * 360;
+        const endAngle = currentAngle + angle;
+
+        const startRad = (currentAngle * Math.PI) / 180;
+        const endRad = (endAngle * Math.PI) / 180;
+
+        const x1 = cx + r * Math.cos(startRad);
+        const y1 = cy + r * Math.sin(startRad);
+        const x2 = cx + r * Math.cos(endRad);
+        const y2 = cy + r * Math.sin(endRad);
+
+        const largeArc = angle > 180 ? 1 : 0;
+
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`);
+        path.setAttribute("fill", colors[key] || "#9aa0a6");
+        path.setAttribute("stroke", "var(--color-surface)");
+        path.setAttribute("stroke-width", key === 'future' ? '0.3' : '0.5');
+
+        svg.appendChild(path);
+        currentAngle = endAngle;
+      });
+    }
+
+    function drawLegend(legendId, data, names, colors, type) {
+      const legend = document.getElementById(legendId);
+      const total = Object.values(data).reduce((s, v) => s + v, 0);
+      if (total === 0) { legend.innerHTML = '<div class="empty-state" style="padding: 12px;">데이터가 없습니다</div>'; return; }
+
+      legend.innerHTML = Object.entries(data)
+        .sort((a, b) => b[1] - a[1])
+        .map(([key, value]) => {
+          const percentage = ((value / total) * 100).toFixed(1);
+          const displayValue = type === "time" ? `${(value / HOUR).toFixed(1)}시간` : `${value.toLocaleString("ko-KR")}원`;
+          return `
+            <div class="pie-legend-item" style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px">
+              <div class="pie-legend-left" style="display:flex;align-items:center;gap:8px">
+                <div class="pie-legend-color" style="width:16px;height:16px;border-radius:3px;background:${colors[key] || "#9aa0a6"}"></div>
+                <span>${names[key] || key}</span>
+              </div>
+              <span style="font-weight:500">${displayValue} (${percentage}%)</span>
+            </div>`;
+        }).join("");
+    }
+
+    // ====== Heatmap (세로 고정) ======
+    function hoursToColor(h) {
+      if (h <= 0)   return 'var(--color-secondary)';
+      if (h < 0.5) return 'hsl(188,25%,88%)';
+      if (h < 1.0) return 'hsl(188,35%,72%)';
+      if (h < 2.0) return 'hsl(188,45%,56%)';
+      if (h < 4.0) return 'hsl(188,55%,40%)';
+      return 'hsl(188,65%,32%)';
+    }
+    function renderContributionLegend() {
+      const el = document.getElementById('contrib-legend');
+      if (!el) return;
+      const steps = [0.4, 0.9, 1.5, 3, 5];
+      el.innerHTML = '';
+      const less = document.createElement('span'); less.textContent = '😴';
+      el.appendChild(less);
+      steps.forEach(h => {
+        const sw = document.createElement('span');
+        sw.className = 'legend-swatch';
+        sw.style.background = hoursToColor(h);
+        el.appendChild(sw);
+      });
+      const more = document.createElement('span'); more.textContent = '😎';
+      el.appendChild(more);
+    }
+    function ymd(d) { return d.toISOString().slice(0,10); }
+    function buildDailyHoursMap(includeRunning=true) {
+      const include = new Set(['work','study','exercise']);
+      const map = {};
+      for (const r of appData.timeRecords) {
+        if (r.isDefault) continue;
+        if (!include.has(r.category)) continue;
+        const key = ymd(new Date(startOfLocalDay(r.timestamp))); 
+        map[key] = (map[key] || 0) + (Number(r.duration) || 0) / HOUR;
+      }
+      if (includeRunning && timerInterval) {
+        const runningCat = document.getElementById("time-category").value;
+        if (include.has(runningCat)) {
+          const key = ymd(new Date(startOfLocalDay()));
+          map[key] = (map[key] || 0) + (timerElapsed / HOUR);
+        }
+      }
+      return map;
+    }
+    function initContribRangeChips() {
+      const wrap = document.getElementById('contrib-range');
+      if (!wrap) return;
+      wrap.addEventListener('click', (e) => {
+        const btn = e.target.closest('.chip');
+        if (!btn) return;
+        contribRange = btn.dataset.range || '12m';
+        document.querySelectorAll('#contrib-range .chip').forEach(c => c.classList.toggle('active', c === btn));
+        renderContributionForCurrentRange();
+      });
+    }
+    function renderContributionForCurrentRange() {
+      const now = new Date(); now.setHours(0,0,0,0);
+      let start;
+      if (contribRange === '1w') {
+        start = new Date(now.getTime() - 6*DAY); // 최근 7일
+      } else {
+        const months = { '1m':1, '3m':3, '6m':6, '12m':12 }[contribRange] || 12;
+        start = new Date(now);
+        start.setMonth(start.getMonth() - (months - 1), 1); // N개월 전 1일
+      }
+      renderContributionFixed({ startDate: start, endDate: now });
+    }
+    // 항상 7행(요일)로 그리고, 세로 높이 고정
+    // 항상 7행(요일)로 그리고, 세로 높이 고정
+    function renderContributionFixed({startDate, endDate}) {
+      const svg = document.getElementById('contrib-graph');
+      if (!svg) return;
+      svg.innerHTML = '';
+
+      // ── 고정 레이아웃 파라미터 ─────────────────────────
+      const ROWS = 7;              // 요일 7행 고정
+      const CELL = 12;             // 셀 한 변(px) 고정
+      const GAP  = 2;              // 셀 간격(px)
+      const TOP  = 18;             // 상단 여백(월 라벨 영역)
+      const LEFT = 24;             // 좌측 여백(요일 라벨 영역)
+      // const FIXED_HEIGHT = TOP + ROWS * (CELL + GAP) - GAP + 8; // 항상 동일한 viewBox 높이
+      const FIXED_HEIGHT = TOP + ROWS * (CELL + GAP) - GAP + 8; // 항상 동일한 viewBox 높이
+      // ──────────────────────────────────────────────────
+
+      const today = new Date(endDate); today.setHours(0,0,0,0);
+      const start = new Date(startDate); start.setHours(0,0,0,0);
+
+      // 시작일을 직전 일요일로 보정(항상 주 단위 열)
+      const shift = start.getDay();
+      start.setDate(start.getDate() - shift);
+
+      // 날짜별 총 시간
+      const daily = buildDailyHoursMap(true);
+
+      const DAY_MS = 24*60*60*1000;
+      const daysSpan = Math.floor((today - start) / DAY_MS) + 1;
+      const weeks = Math.ceil(daysSpan / 7);
+
+      // 가로 폭은 주 수에 따라 변하지만, 높이는 FIXED_HEIGHT로 고정
+      const width  = LEFT + weeks * (CELL + GAP) - GAP + 8;
+      const height = FIXED_HEIGHT;
+      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+      // 요일 라벨(월/수/금)
+      const dayNames = ['일','월','화','수','목','금','토'];
+      [1,3,5].forEach(dow => {
+        const y = TOP + dow * (CELL + GAP) + CELL - 2;
+        const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+        t.setAttribute('x', LEFT - 8);
+        t.setAttribute('y', y);
+        t.setAttribute('text-anchor','end');
+        t.setAttribute('font-size','8');
+        t.setAttribute('fill','var(--color-text-secondary)');
+        t.textContent = dayNames[dow];
+        svg.appendChild(t);
+      });
+
+      const tip = document.getElementById('contrib-tip');
+      function showTip(text, clientX, clientY) {
+        tip.textContent = text;
+        tip.style.left = clientX + 'px';
+        tip.style.top  = clientY + 'px';
+        tip.style.opacity = 1;
+        tip.setAttribute('aria-hidden', 'false');
+      }
+      function hideTip() {
+        tip.style.opacity = 0;
+        tip.setAttribute('aria-hidden', 'true');
+      }
+
+      const monthPrinted = new Set();
+      for (let i = 0; i < daysSpan; i++) {
+        const d = new Date(start.getTime() + i * DAY_MS);
+        const column = Math.floor(i / 7);
+        const row = d.getDay();
+
+        const key = d.toISOString().slice(0,10);
+        const h = daily[key] || 0;
+        const color = hoursToColor(h);
+
+        const x = LEFT + column * (CELL + GAP);
+        const y = TOP + row * (CELL + GAP);
+
+        const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+        rect.setAttribute('x', x);
+        rect.setAttribute('y', y);
+        rect.setAttribute('width', CELL);
+        rect.setAttribute('height', CELL);
+        rect.setAttribute('rx', 2);
+        rect.setAttribute('ry', 2);
+        rect.setAttribute('fill', color);
+
+        const dateText = d.toLocaleDateString('ko-KR', { month:'short', day:'numeric', weekday:'short' });
+        rect.addEventListener('mousemove', (e) => showTip(`${dateText} · ${h.toFixed(1)}시간`, e.clientX, e.clientY));
+        rect.addEventListener('mouseenter', (e) => showTip(`${dateText} · ${h.toFixed(1)}시간`, e.clientX, e.clientY));
+        rect.addEventListener('mouseleave', hideTip);
+        rect.addEventListener('touchstart', (e) => {
+          const t = e.touches[0];
+          showTip(`${dateText} · ${h.toFixed(1)}시간`, t.clientX, t.clientY);
+        }, {passive:true});
+        rect.addEventListener('touchend', hideTip);
+
+        // 기본 title도 유지
+        const title = document.createElementNS('http://www.w3.org/2000/svg','title');
+        title.textContent = `${dateText} · ${h.toFixed(1)}시간`;
+        rect.appendChild(title);
+
+        svg.appendChild(rect);
+
+        // 월 라벨(1일 열 상단)
+        if (d.getDate() === 1) {
+          const monthKey = `${d.getFullYear()}-${d.getMonth()}`;
+          if (!monthPrinted.has(monthKey)) {
+            monthPrinted.add(monthKey);
+            const mt = document.createElementNS('http://www.w3.org/2000/svg','text');
+            mt.setAttribute('x', x + 2);
+            mt.setAttribute('y', 10);
+            mt.setAttribute('font-size', '9');
+            mt.setAttribute('fill', 'var(--color-text-secondary)');
+            mt.textContent = d.toLocaleString('ko-KR', { month: 'short' });
+            svg.appendChild(mt);
+          }
+        }
+      }
+    }
+
+    // ===== Asset amount stepper
+    let currentAssetStepManwon = 1; // 칩은 '만원' 단위
+    function setAssetStep(stepManwon) {
+      currentAssetStepManwon = Number(stepManwon) || 1;
+      document.querySelectorAll('#asset-step-chips .chip').forEach(ch => {
+        ch.classList.toggle('active', Number(ch.dataset.step) === currentAssetStepManwon);
+      });
+    }
+    function initAssetStepChips() {
+      const chips = document.getElementById("asset-step-chips");
+      if (!chips) return;
+      chips.addEventListener("click", (e) => {
+        const btn = e.target.closest(".chip");
+        if (!btn) return;
+        setAssetStep(btn.dataset.step);
+      });
+      setAssetStep(1);
+    }
+    function bumpAsset(dir) {
+      const input = document.getElementById("asset-value");
+      if (!input) return;
+      const raw = input.value.replace(/,/g, "");
+      const base = Number.isFinite(Number(raw)) ? Number(raw) : 0;
+      const stepWon = currentAssetStepManwon * 10000; // 만원 → 원
+      const next = Math.max(0, base + dir * stepWon);
+      input.value = formatNumberWithCommas(String(next));
+    }
+    function initAssetInputKeys() {
+      const input = document.getElementById("asset-value");
+      if (!input) return;
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowUp") { e.preventDefault(); bumpAsset(1); }
+        if (e.key === "ArrowDown") { e.preventDefault(); bumpAsset(-1); }
+      });
+    }
+
+    // ===== Boot
+    window.addEventListener("load", init);
+    window.addEventListener("DOMContentLoaded", () => {
+      initAssetStepChips();
+      initAssetInputKeys();
+    });
+  </script>
+</body>
+</html>
