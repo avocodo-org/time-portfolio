@@ -330,6 +330,7 @@
   <script>
     // ===== Data Storage
     const STORAGE_KEY = "time-asset-data";
+    const RUN_STATE_KEY = "time-asset-running"; // 실행 중 타이머 상태 보존
     let appData = { timeRecords: [], assets: [], settings: {} };
 
     // Timer State
@@ -346,6 +347,41 @@
     function startOfLocalDay(ts = Date.now()) { const d = new Date(ts); d.setHours(0,0,0,0); return d.getTime(); }
     function isSameLocalDay(a, b) { return startOfLocalDay(a) === startOfLocalDay(b); }
     function showToast(message) { const t = document.getElementById("toast"); t.textContent = message; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2000); }
+
+    // 실행 중 타이머 상태 보존/복원
+    function persistRunningState() {
+      if (!timerInterval) return;
+      const category = document.getElementById("time-category")?.value || "work";
+      const state = { running: true, startTime: timerStartTime, category };
+      try { localStorage.setItem(RUN_STATE_KEY, JSON.stringify(state)); } catch {}
+    }
+    function clearRunningState() {
+      try { localStorage.removeItem(RUN_STATE_KEY); } catch {}
+    }
+    function restoreRunningStateIfAny() {
+      try {
+        const raw = localStorage.getItem(RUN_STATE_KEY);
+        if (!raw) return false;
+        const st = JSON.parse(raw);
+        if (!st || !st.running || !Number.isFinite(st.startTime)) return false;
+
+        // 카테고리 복원
+        const sel = document.getElementById("time-category");
+        if (sel && st.category) sel.value = st.category;
+
+        // 타이머 복원: 시작시각 유지, 경과는 지금 시각 기준으로 환산
+        timerStartTime = st.startTime;
+        timerElapsed   = Math.max(0, Date.now() - timerStartTime);
+        if (!timerInterval) timerInterval = setInterval(updateTimerDisplay, 100);
+
+        // 버튼 상태 복원
+        const btn = document.getElementById("timer-btn");
+        if (btn) { btn.textContent = "정지"; btn.classList.remove("btn-primary"); btn.classList.add("btn-secondary"); }
+
+        updateTimerDisplay();
+        return true;
+      } catch { return false; }
+    }
 
     // 쉼표 포맷
     function formatNumberWithCommas(x) {
@@ -394,6 +430,10 @@
       loadData();
       ensureTimeRecordIds();
       addDefaultTimes();
+
+      // 실행 중 복원
+      restoreRunningStateIfAny();
+
       updateUI();
 
       // iOS install hint
@@ -412,7 +452,7 @@
       amountInput.addEventListener("focus", (e) => { e.target.value = e.target.value.replace(/,/g, ""); });
       amountInput.addEventListener("blur",  (e) => { e.target.value = formatNumberWithCommas(e.target.value); });
 
-      // 기존 1분 주기(원본 유지) + 히트맵 1초 주기(즉시 반영)
+      // 기존 1분 주기(원본 유지)
       setInterval(() => {
         if (document.getElementById('time-tab').classList.contains('active')) {
           updatePieCharts();
@@ -420,7 +460,7 @@
         }
       }, 1000*60);
 
-      // 히트맵만 1분마다 재렌더(실시간 반영)
+      // 히트맵만 1분마다 재렌더
       setInterval(() => {
         if (document.getElementById('time-tab').classList.contains('active')) {
           renderContributionForCurrentRange();
@@ -431,6 +471,26 @@
       initContribRangeChips();
       renderContributionLegend();
       renderContributionForCurrentRange();
+
+      // 페이지 숨김/복귀 시 실행 상태 보존/복원
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+          persistRunningState();
+        } else if (document.visibilityState === "visible") {
+          if (!timerInterval) restoreRunningStateIfAny();
+          updateUI();
+        }
+      });
+      window.addEventListener("pagehide", persistRunningState);
+      window.addEventListener("pageshow", () => {
+        if (!timerInterval) restoreRunningStateIfAny();
+        updateUI();
+      });
+
+      // 실행 중 카테고리 변경 시 상태 업데이트
+      document.getElementById("time-category").addEventListener("change", () => {
+        if (timerInterval) persistRunningState();
+      });
     }
 
     // Add default times for today if not exist
@@ -502,21 +562,51 @@
     function toggleTimer() { timerInterval ? stopTimer() : startTimer(); }
     function startTimer() {
       timerStartTime = Date.now() - timerElapsed;
-      timerInterval = setInterval(updateTimerDisplay, 100);
+      if (!timerInterval) timerInterval = setInterval(updateTimerDisplay, 100);
       const btn = document.getElementById("timer-btn");
       btn.textContent = "정지";
       btn.classList.remove("btn-primary"); btn.classList.add("btn-secondary");
+
+      // 실행 상태 저장
+      persistRunningState();
     }
     function stopTimer() {
       clearInterval(timerInterval); timerInterval = null;
+
+      // 실행 상태 제거
+      clearRunningState();
+
       const category = document.getElementById("time-category").value;
-      const duration = timerElapsed;
+      const now = Date.now();
+      const start = timerStartTime ?? (now - timerElapsed);
+      const duration = Math.max(0, now - start);
+
       if (duration > 0) {
-        appData.timeRecords.push({ id: uid(), category, duration, timestamp: Date.now() });
+        // === 자정 경계 분할 저장 (여러 날 연속도 처리) ===
+        let s = start;
+        while (startOfLocalDay(s) < startOfLocalDay(now)) {
+          const endOfDay = startOfLocalDay(s) + DAY;         // 다음 날 00:00(ms)
+          const chunk = Math.max(0, endOfDay - s);
+          if (chunk > 0) {
+            appData.timeRecords.push({
+              id: uid(), category, duration: chunk, timestamp: endOfDay - 1
+            });
+          }
+          s = endOfDay;
+        }
+        const lastChunk = Math.max(0, now - s);
+        if (lastChunk > 0) {
+          appData.timeRecords.push({
+            id: uid(), category, duration: lastChunk, timestamp: now
+          });
+        }
+
         saveData(); showToast("시간 기록 저장 완료!");
       }
-      timerElapsed = 0; updateTimerDisplay(); updateUI();
-      renderContributionForCurrentRange(); // 정지 직후 즉시 반영
+
+      timerElapsed = 0; timerStartTime = null;
+      updateTimerDisplay(); updateUI();
+      renderContributionForCurrentRange();
       const btn = document.getElementById("timer-btn");
       btn.textContent = "시작"; btn.classList.add("btn-primary"); btn.classList.remove("btn-secondary");
     }
@@ -556,7 +646,7 @@
       }
     }
 
-    // ===== NEW: 오늘 기록 전체 삭제
+    // ===== 오늘 기록 전체 삭제
     function clearTodayTimeRecords() {
       const today = startOfLocalDay();
       const count = appData.timeRecords.filter(r => isSameLocalDay(r.timestamp, today) && !r.isDefault).length;
@@ -567,7 +657,7 @@
       renderContributionForCurrentRange();
     }
 
-    // ===== NEW: 자산 전체 삭제
+    // ===== 자산 전체 삭제
     function clearAllAssets() {
       if (appData.assets.length === 0) { showToast("삭제할 자산이 없습니다"); return; }
       if (!confirm("모든 자산 포트폴리오를 초기화할까요?")) return;
@@ -683,10 +773,9 @@
       });
 
       // 진행 중 세션 포함
-      let runningAdd = 0;
       if (timerInterval) {
         const runningCat = document.getElementById("time-category").value;
-        runningAdd = timerElapsed;
+        const runningAdd = timerElapsed;
         timeData[runningCat] = (timeData[runningCat] || 0) + runningAdd;
       }
 
@@ -844,7 +933,7 @@
       for (const r of appData.timeRecords) {
         if (r.isDefault) continue;
         if (!include.has(r.category)) continue;
-        const key = ymd(new Date(startOfLocalDay(r.timestamp))); 
+        const key = ymd(new Date(startOfLocalDay(r.timestamp)));
         map[key] = (map[key] || 0) + (Number(r.duration) || 0) / HOUR;
       }
       if (includeRunning && timerInterval) {
