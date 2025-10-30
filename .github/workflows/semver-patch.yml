@@ -1,0 +1,36 @@
+name: Auto semver patch on main
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    if: ${{ github.event.head_commit && !contains(github.event.head_commit.message, 'chore(version)') }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure version.json
+        run: |
+          test -f version.json || echo '{"version":"0.0.0"}' > version.json
+
+      - name: Bump PATCH (SemVer)
+        id: bump
+        run: |
+          V=$(jq -r .version version.json 2>/dev/null || echo "0.0.0")
+          MAJOR=${V%%.*}
+          REST=${V#*.}; MINOR=${REST%%.*}; PATCH=${REST#*.}
+          : ${MAJOR:=0} ; : ${MINOR:=0} ; : ${PATCH:=0}
+          PATCH=$((PATCH+1))
+          NEW="${MAJOR}.${MINOR}.${PATCH}"
+          echo "{\"version\":\"${NEW}\"}" > version.json
+          echo "v=${NEW}" >> $GITHUB_OUTPUT
+
+      - name: Commit version.json
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add version.json
+          git commit -m "chore(version): v${{ steps.bump.outputs.v }}" || exit 0
+          git push

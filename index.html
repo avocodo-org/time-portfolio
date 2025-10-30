@@ -295,7 +295,7 @@
         <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importData(event)" />
       </div>
 
-      <div class="card">
+        <div class="card">
         <h2>통계</h2>
         <div class="stats-grid">
           <div class="stat-card">
@@ -313,7 +313,7 @@
       <div class="card">
         <h2>앱 정보</h2>
         <p style="color: var(--color-text-secondary); font-size: 14px; margin: 0;">
-          🥑 시간 포트폴리오 v1.0 created by Avocodo<br />오프라인에서 작동하며 데이터는 기기에 안전하게 저장됩니다.
+          🥑 시간 포트폴리오 <span id="app-version">v?</span> created by Avocodo<br />오프라인에서 작동하며 데이터는 기기에 안전하게 저장됩니다.
         </p>
       </div>
 
@@ -1118,6 +1118,63 @@
       initAssetStepChips();
       initAssetInputKeys();
     });
+  </script>
+
+  <!-- === 추가: SemVer 기반 강제 최신화 스니펫 (다른 기능 불변) === -->
+  <script>
+  (async function () {
+    // version.json에서 버전 읽기
+    async function getVersion() {
+      try {
+        const r = await fetch('version.json?ts=' + Date.now(), { cache: 'no-store' });
+        const j = await r.json();
+        return j.version;
+      } catch (e) {
+        return null;
+      }
+    }
+    const v = await getVersion();
+
+    // 1) UI에 버전 표시
+    if (v) {
+      const el = document.getElementById('app-version');
+      if (el) el.textContent = 'v' + v;
+    }
+
+    // 2) 첫 진입 시 URL에 ?v=부여(홈화면 아이콘 실행 포함)
+    if (v) {
+      const u = new URL(location.href);
+      if (!u.searchParams.get('v')) {
+        u.searchParams.set('v', v);
+        // 현재 문서만 새 버전 쿼리로 교체 (history 영향 최소화)
+        return void location.replace(u.toString());
+      }
+    }
+
+    // 3) 이미지/아이콘 src에도 ?v= 부착 (파일명은 그대로 유지)
+    function withV(src) {
+      if (!v) return src;
+      try {
+        const x = new URL(src, location.href);
+        x.searchParams.set('v', v);
+        return x.toString();
+      } catch {
+        return src;
+      }
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      // 페이지 내 <img> 모두 처리
+      document.querySelectorAll('img[src]').forEach(img => {
+        const orig = img.getAttribute('src');
+        img.src = withV(orig);
+      });
+      // 홈화면 아이콘(apple-touch-icon) 처리
+      const icon = document.querySelector('link[rel="apple-touch-icon"]');
+      if (icon && icon.getAttribute('href')) {
+        icon.href = withV(icon.getAttribute('href'));
+      }
+    });
+  })();
   </script>
 </body>
 </html>
